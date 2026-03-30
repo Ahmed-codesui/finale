@@ -1,0 +1,1005 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Quiz Program</title>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet"/>
+  <style>
+    :root {
+      --bg:       #0a0c10;
+      --surface:  #111318;
+      --surface2: #181b23;
+      --border:   rgba(255,255,255,0.07);
+      --text:     #e2e8f0;
+      --muted:    #64748b;
+      --html:     #f97316;
+      --css:      #38bdf8;
+      --js:       #facc15;
+      --correct:  #4ade80;
+      --wrong:    #f87171;
+      --radius:   12px;
+    }
+
+    *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+
+    body {
+      font-family: 'Syne', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      position: relative;
+      overflow-x: hidden;
+    }
+
+    /* subtle grid bg */
+    body::before {
+      content:'';
+      position:fixed; inset:0;
+      background-image:
+        linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px);
+      background-size: 40px 40px;
+      pointer-events:none;
+    }
+
+    body::after {
+      content:'';
+      position:fixed; inset:0;
+      background:
+        radial-gradient(ellipse 55% 35% at 15% 20%, rgba(249,115,22,0.06) 0%, transparent 60%),
+        radial-gradient(ellipse 45% 40% at 85% 80%, rgba(56,189,248,0.05) 0%, transparent 60%),
+        radial-gradient(ellipse 40% 40% at 50% 50%, rgba(250,204,21,0.03) 0%, transparent 70%);
+      pointer-events:none;
+    }
+
+    .shell {
+      width:100%; max-width:740px;
+      position:relative; z-index:1;
+    }
+
+    /* ── SECTION TRANSITIONS ── */
+    .section { display:none; }
+    .section.active {
+      display:block;
+      animation: appear 0.5s cubic-bezier(.22,1,.36,1) both;
+    }
+    @keyframes appear {
+      from { opacity:0; transform:translateY(20px); }
+      to   { opacity:1; transform:translateY(0); }
+    }
+
+    /* ─────────── INTRO ─────────── */
+    .intro-top {
+      margin-bottom: 24px;
+    }
+
+    .brand {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      letter-spacing: 0.2em;
+      color: var(--muted);
+      text-transform: uppercase;
+      margin-bottom: 18px;
+      display:flex; align-items:center; gap:8px;
+    }
+    .brand::before {
+      content:'>';
+      color: var(--js);
+    }
+
+    .intro-heading {
+      font-size: clamp(2rem, 6vw, 3.2rem);
+      font-weight: 800;
+      line-height: 1.1;
+      letter-spacing: -0.02em;
+      margin-bottom: 16px;
+    }
+
+    .intro-heading .tag-html { color: var(--html); }
+    .intro-heading .tag-css  { color: var(--css);  }
+    .intro-heading .tag-js   { color: var(--js);   }
+
+    .intro-sub {
+      font-size: 1rem;
+      color: var(--muted);
+      line-height: 1.7;
+      max-width: 500px;
+      margin-bottom: 32px;
+    }
+
+    /* lang pills */
+    .lang-pills {
+      display:flex; gap:10px; flex-wrap:wrap;
+      margin-bottom: 32px;
+    }
+    .pill {
+      display:flex; align-items:center; gap:7px;
+      padding: 8px 16px;
+      border-radius: 99px;
+      font-family:'JetBrains Mono', monospace;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing:0.05em;
+      border: 1px solid;
+    }
+    .pill-dot { width:7px; height:7px; border-radius:50%; }
+    .pill.html { color:var(--html); border-color:rgba(249,115,22,0.3); background:rgba(249,115,22,0.07); }
+    .pill.html .pill-dot { background:var(--html); }
+    .pill.css  { color:var(--css);  border-color:rgba(56,189,248,0.3);  background:rgba(56,189,248,0.07); }
+    .pill.css  .pill-dot { background:var(--css); }
+    .pill.js   { color:var(--js);   border-color:rgba(250,204,21,0.3);  background:rgba(250,204,21,0.07); }
+    .pill.js   .pill-dot { background:var(--js); }
+
+    /* stat row */
+    .stat-row {
+      display:grid; grid-template-columns: repeat(3,1fr);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow:hidden;
+      margin-bottom: 32px;
+      background: var(--surface);
+    }
+    .stat-cell {
+      padding: 20px;
+      border-right: 1px solid var(--border);
+    }
+    .stat-cell:last-child { border-right:none; }
+    .stat-val {
+      font-family:'JetBrains Mono', monospace;
+      font-size: 1.8rem;
+      font-weight: 700;
+      color: var(--js);
+      line-height:1;
+      margin-bottom:4px;
+    }
+    .stat-lbl {
+      font-size: 0.75rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing:0.1em;
+      font-weight:600;
+    }
+
+    /* code snippet decoration */
+    .code-preview {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 18px 20px;
+      font-family:'JetBrains Mono', monospace;
+      font-size: 13px;
+      line-height: 1.8;
+      margin-bottom: 32px;
+      position: relative;
+      overflow: hidden;
+    }
+    .code-preview::before {
+      content:'';
+      position:absolute; top:0; left:0; right:0; height:2px;
+      background: linear-gradient(90deg, var(--html), var(--css), var(--js));
+    }
+    .code-dots {
+      display:flex; gap:6px; margin-bottom:12px;
+    }
+    .code-dots span {
+      width:10px; height:10px; border-radius:50%;
+    }
+    .code-dots span:nth-child(1) { background:#f87171; }
+    .code-dots span:nth-child(2) { background:var(--js); }
+    .code-dots span:nth-child(3) { background:var(--correct); }
+    .c-tag   { color:var(--html); }
+    .c-attr  { color:var(--css);  }
+    .c-str   { color:var(--js);   }
+    .c-muted { color:var(--muted);}
+
+    .btn-start {
+      display:inline-flex; align-items:center; gap:10px;
+      padding: 15px 36px;
+      background: var(--js);
+      color: #0a0c10;
+      border: none; border-radius: 10px;
+      font-family:'Syne', sans-serif;
+      font-size: 1rem; font-weight: 800;
+      cursor: pointer;
+      transition: all 0.2s;
+      letter-spacing:0.02em;
+    }
+    .btn-start:hover {
+      background: #fde047;
+      transform: translateY(-2px);
+      box-shadow: 0 10px 28px rgba(250,204,21,0.3);
+    }
+    .btn-start-icon { font-size:1.1rem; transition:transform 0.2s; }
+    .btn-start:hover .btn-start-icon { transform:translateX(4px); }
+
+    /* ─────────── QUIZ ─────────── */
+    .quiz-header {
+      display:flex; align-items:center; justify-content:space-between;
+      margin-bottom:20px;
+    }
+
+    .qmeta {
+      font-family:'JetBrains Mono', monospace;
+      font-size: 12px;
+      color: var(--muted);
+    }
+    .qmeta .qnum { color: var(--text); font-weight:700; font-size:14px; }
+
+    .cat-badge {
+      font-family:'JetBrains Mono', monospace;
+      font-size: 11px; font-weight:700;
+      letter-spacing:0.1em;
+      padding: 4px 12px; border-radius:99px;
+      text-transform:uppercase;
+    }
+    .cat-html { background:rgba(249,115,22,0.15); color:var(--html); border:1px solid rgba(249,115,22,0.25); }
+    .cat-css  { background:rgba(56,189,248,0.15);  color:var(--css);  border:1px solid rgba(56,189,248,0.25); }
+    .cat-js   { background:rgba(250,204,21,0.15);  color:var(--js);   border:1px solid rgba(250,204,21,0.25); }
+
+    .prog-track {
+      width:100%; height:3px;
+      background: var(--surface2);
+      border-radius:99px; margin-bottom:28px; overflow:hidden;
+    }
+    .prog-fill {
+      height:100%;
+      background: linear-gradient(90deg, var(--html) 0%, var(--css) 50%, var(--js) 100%);
+      border-radius:99px;
+      transition: width 0.4s cubic-bezier(.22,1,.36,1);
+    }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 32px 36px;
+      margin-bottom: 16px;
+      position:relative; overflow:hidden;
+    }
+    .card::before {
+      content:'';
+      position:absolute; top:0; left:0; right:0; height:2px;
+    }
+    .card.html-q::before { background:linear-gradient(90deg, var(--html), transparent); }
+    .card.css-q::before  { background:linear-gradient(90deg, var(--css),  transparent); }
+    .card.js-q::before   { background:linear-gradient(90deg, var(--js),   transparent); }
+
+    .q-text {
+      font-size: clamp(1rem, 2.5vw, 1.2rem);
+      font-weight: 700;
+      line-height: 1.5;
+      margin-bottom: 24px;
+      color: var(--text);
+    }
+
+    /* inline code in questions */
+    .q-text code {
+      font-family:'JetBrains Mono', monospace;
+      font-size:0.9em;
+      background: var(--surface2);
+      color: var(--js);
+      padding: 2px 7px;
+      border-radius: 4px;
+      border: 1px solid var(--border);
+    }
+
+    .opts { display:flex; flex-direction:column; gap:10px; }
+
+    .opt {
+      display:flex; align-items:center; gap:14px;
+      padding: 14px 18px;
+      background: var(--surface2);
+      border: 1.5px solid var(--border);
+      border-radius: 10px;
+      cursor: pointer;
+      transition: all 0.18s;
+      user-select:none;
+    }
+    .opt:hover {
+      border-color: rgba(250,204,21,0.4);
+      background: rgba(250,204,21,0.05);
+      transform: translateX(4px);
+    }
+    .opt-key {
+      font-family:'JetBrains Mono', monospace;
+      font-size:11px; font-weight:700;
+      width:26px; height:26px; flex-shrink:0;
+      border-radius:6px;
+      border: 1.5px solid var(--border);
+      display:flex; align-items:center; justify-content:center;
+      color: var(--muted);
+      transition: all 0.18s;
+    }
+    .opt-txt { font-size:0.92rem; font-weight:500; }
+
+    /* opt states */
+    .opt.chosen { border-color:rgba(250,204,21,0.5); background:rgba(250,204,21,0.07); }
+    .opt.chosen .opt-key { background:var(--js); border-color:var(--js); color:#0a0c10; }
+
+    .opt.right { border-color:rgba(74,222,128,0.5); background:rgba(74,222,128,0.08); pointer-events:none; }
+    .opt.right .opt-key { background:var(--correct); border-color:var(--correct); color:#0a0c10; }
+
+    .opt.wrong { border-color:rgba(248,113,113,0.5); background:rgba(248,113,113,0.08); pointer-events:none; }
+    .opt.wrong .opt-key { background:var(--wrong); border-color:var(--wrong); color:#fff; }
+
+    .opt.locked { pointer-events:none; }
+
+    /* explanation */
+    .exp {
+      display:none;
+      margin-top:16px;
+      padding:13px 16px;
+      background: rgba(250,204,21,0.05);
+      border-left: 2px solid var(--js);
+      border-radius: 0 8px 8px 0;
+      font-size: 0.84rem;
+      color: #94a3b8;
+      line-height:1.65;
+      font-family:'JetBrains Mono', monospace;
+    }
+    .exp.show { display:block; animation:fadeUp 0.3s ease both; }
+    @keyframes fadeUp {
+      from { opacity:0; transform:translateY(5px); }
+      to   { opacity:1; transform:translateY(0); }
+    }
+
+    /* controls */
+    .controls {
+      display:flex; gap:10px; justify-content:space-between;
+    }
+    .btn {
+      padding: 11px 24px; border:none; border-radius:8px;
+      font-family:'Syne', sans-serif; font-size:0.88rem; font-weight:700;
+      cursor:pointer; transition:all 0.18s; letter-spacing:0.03em;
+    }
+    .btn-ghost {
+      background:transparent; color:var(--muted);
+      border: 1.5px solid var(--border);
+    }
+    .btn-ghost:hover { border-color:var(--muted); color:var(--text); }
+    .btn-ghost:disabled { opacity:0.3; cursor:not-allowed; }
+
+    .btn-next {
+      background: var(--js); color:#0a0c10;
+      margin-left:auto;
+    }
+    .btn-next:hover { background:#fde047; transform:translateY(-1px); box-shadow:0 6px 20px rgba(250,204,21,0.3); }
+
+    /* warn */
+    .warn {
+      display:none; margin-top:12px;
+      background:rgba(248,113,113,0.1); border:1px solid rgba(248,113,113,0.25);
+      color:#fca5a5; font-size:0.82rem;
+      padding:9px 14px; border-radius:8px; text-align:center;
+      font-family:'JetBrains Mono', monospace;
+    }
+    .warn.show { display:block; }
+
+    /* live score */
+    .live-score {
+      font-family:'JetBrains Mono', monospace;
+      font-size:12px; color:var(--muted);
+    }
+    .live-score span { color:var(--correct); font-weight:700; }
+
+    /* ─────────── RESULTS ─────────── */
+    .results-top {
+      text-align:center; padding: 20px 0 32px;
+    }
+
+    .ring-wrap {
+      width:170px; height:170px;
+      margin:0 auto 24px; position:relative;
+    }
+    .ring-wrap svg { width:100%; height:100%; transform:rotate(-90deg); }
+    .ring-bg  { fill:none; stroke:var(--surface2); stroke-width:11; }
+    .ring-arc {
+      fill:none; stroke-width:11; stroke-linecap:round;
+      stroke-dasharray:471; stroke-dashoffset:471;
+      transition: stroke-dashoffset 1.3s cubic-bezier(.22,1,.36,1);
+    }
+    .ring-num {
+      position:absolute; inset:0;
+      display:flex; flex-direction:column; align-items:center; justify-content:center;
+    }
+    .rn-big {
+      font-family:'JetBrains Mono', monospace;
+      font-size:2.8rem; font-weight:700; line-height:1;
+      color:var(--js);
+    }
+    .rn-of { font-size:0.78rem; color:var(--muted); font-family:'JetBrains Mono', monospace; }
+
+    .res-title {
+      font-size: clamp(1.4rem,4vw,2rem); font-weight:800;
+      margin-bottom:8px;
+    }
+    .res-sub { font-size:0.95rem; color:var(--muted); margin-bottom:8px; }
+
+    /* lang breakdown */
+    .breakdown {
+      display:grid; grid-template-columns:repeat(3,1fr);
+      gap:10px; margin: 20px 0 28px;
+    }
+    .bk-cell {
+      background:var(--surface); border:1px solid var(--border);
+      border-radius:10px; padding:14px 16px; text-align:left;
+    }
+    .bk-lang {
+      font-family:'JetBrains Mono', monospace;
+      font-size:11px; font-weight:700; text-transform:uppercase;
+      letter-spacing:0.1em; margin-bottom:6px;
+    }
+    .bk-score {
+      font-size:1.3rem; font-weight:800;
+      font-family:'JetBrains Mono', monospace;
+    }
+    .bk-of { font-size:0.75rem; color:var(--muted); }
+
+    /* review */
+    .rev-label {
+      font-size:10px; letter-spacing:0.18em; text-transform:uppercase;
+      color:var(--muted); font-weight:700; margin-bottom:12px;
+      font-family:'JetBrains Mono', monospace;
+    }
+    .rev-list { display:flex; flex-direction:column; gap:8px; margin-bottom:24px; }
+
+    .ri {
+      display:flex; align-items:flex-start; gap:12px;
+      background:var(--surface); border-radius:10px;
+      padding:13px 16px; border-left:2.5px solid;
+    }
+    .ri.ok  { border-color:var(--correct); }
+    .ri.bad { border-color:var(--wrong); }
+
+    .ri-ic { font-size:0.95rem; flex-shrink:0; margin-top:1px; }
+    .ri-body { font-size:0.82rem; line-height:1.55; }
+    .ri-q { font-weight:700; color:var(--text); margin-bottom:3px; }
+    .ri-a { color:var(--muted); }
+    .ri-a b.ok  { color:var(--correct); }
+    .ri-a b.bad { color:var(--wrong);   }
+
+    .btn-restart {
+      display:inline-flex; align-items:center; gap:8px;
+      padding:13px 32px; background:var(--js); color:#0a0c10;
+      border:none; border-radius:10px;
+      font-family:'Syne', sans-serif; font-size:0.95rem; font-weight:800;
+      cursor:pointer; transition:all 0.2s;
+    }
+    .btn-restart:hover { background:#fde047; transform:translateY(-1px); }
+
+    @media (max-width:560px) {
+      .card { padding:22px 18px; }
+      .stat-row, .breakdown { grid-template-columns:1fr; }
+      .controls { flex-wrap:wrap; }
+      .btn { width:100%; text-align:center; justify-content:center; }
+      .btn-next { margin-left:0; }
+    }
+  </style>
+</head>
+<body>
+<div class="shell">
+
+  <!-- ── INTRO ── -->
+  <div class="section active" id="sec-intro">
+    <div class="intro-top">
+      <div class="brand">web-dev-quiz v2.0</div>
+      <h1 class="intro-heading">
+        Test your<br/>
+        <!-- <span class="tag-html">&lt;HTML&gt;</span>
+        <span class="tag-css">CSS</span>
+        <span class="tag-js">JS</span><br/> -->
+        Programming knowledge.
+      </h1>
+      <p class="intro-sub">
+        30 questions across the three pillars of the web. From semantic markup to CSS specificity to JavaScript closures — how deep does your knowledge go?
+      </p>
+    </div>
+
+    <div class="lang-pills">
+      <div class="pill html"><span class="pill-dot"></span>HTML · 10 Qs</div>
+      <div class="pill css"> <span class="pill-dot"></span>CSS · 10 Qs</div>
+      <div class="pill js">  <span class="pill-dot"></span>JavaScript · 10 Qs</div>
+    </div>
+
+    <div class="stat-row">
+      <div class="stat-cell">
+        <div class="stat-val">30</div>
+        <div class="stat-lbl">Questions</div>
+      </div>
+      <div class="stat-cell">
+        <div class="stat-val">~10</div>
+        <div class="stat-lbl">Minutes</div>
+      </div>
+      <div class="stat-cell">
+        <div class="stat-val">4</div>
+        <div class="stat-lbl">Options each</div>
+      </div>
+    </div>
+
+    <div class="code-preview">
+      <div class="code-dots">
+        <span></span><span></span><span></span>
+      </div>
+      <span class="c-tag">&lt;quiz</span> <span class="c-attr">topics</span>=<span class="c-str">"html,css,js"</span><span class="c-tag">&gt;</span><br/>
+      &nbsp;&nbsp;<span class="c-attr">const</span> score = <span class="c-str">await</span> <span class="c-tag">takeQuiz</span>();<br/>
+      &nbsp;&nbsp;<span class="c-muted">// 30 questions · instant feedback</span><br/>
+      <span class="c-tag">&lt;/quiz&gt;</span>
+    </div>
+
+    <button class="btn-start" onclick="showQuiz()">
+      Start the Challenge <span class="btn-start-icon">→</span>
+    </button>
+  </div>
+
+  <!-- ── QUIZ ── -->
+  <div class="section" id="sec-quiz">
+    <div class="quiz-header">
+      <div class="qmeta">Question <span class="qnum" id="q-num">1</span> <span>/ 30</span></div>
+      <div class="live-score" id="live-sc" style="display:none">Score: <span id="ls-val">0</span></div>
+      <div class="cat-badge" id="cat-badge">HTML</div>
+    </div>
+
+    <div class="prog-track">
+      <div class="prog-fill" id="prog" style="width:3.33%"></div>
+    </div>
+
+    <div class="card" id="q-card">
+      <div class="q-text" id="q-text"></div>
+      <div class="opts"   id="opts-wrap"></div>
+      <div class="exp"    id="exp-box"></div>
+    </div>
+
+    <div class="warn" id="warn-box">⚠ Select an answer to continue.</div>
+
+    <div class="controls">
+      <button class="btn btn-ghost" id="btn-prev" onclick="go(-1)" disabled>← Prev</button>
+      <button class="btn btn-next"  id="btn-next" onclick="go(1)">Next →</button>
+    </div>
+  </div>
+
+  <!-- ── RESULTS ── -->
+  <div class="section" id="sec-results">
+    <div class="results-top">
+      <div class="ring-wrap">
+        <svg viewBox="0 0 170 170">
+          <defs>
+            <linearGradient id="rg" x1="0%" y1="0%" x2="100%" y2="0%">
+              <stop offset="0%"   stop-color="#f97316"/>
+              <stop offset="50%"  stop-color="#38bdf8"/>
+              <stop offset="100%" stop-color="#facc15"/>
+            </linearGradient>
+          </defs>
+          <circle class="ring-bg"  cx="85" cy="85" r="75"/>
+          <circle class="ring-arc" cx="85" cy="85" r="75" id="ring-arc" stroke="url(#rg)"/>
+        </svg>
+        <div class="ring-num">
+          <div class="rn-big" id="rn-big">0</div>
+          <div class="rn-of">/ 30</div>
+        </div>
+      </div>
+      <div class="res-title" id="res-title"></div>
+      <div class="res-sub"   id="res-sub"></div>
+    </div>
+
+    <div class="breakdown">
+      <div class="bk-cell">
+        <div class="bk-lang" style="color:var(--html)">HTML</div>
+        <div class="bk-score" id="bk-html">—</div>
+        <div class="bk-of">out of 10</div>
+      </div>
+      <div class="bk-cell">
+        <div class="bk-lang" style="color:var(--css)">CSS</div>
+        <div class="bk-score" id="bk-css">—</div>
+        <div class="bk-of">out of 10</div>
+      </div>
+      <div class="bk-cell">
+        <div class="bk-lang" style="color:var(--js)">JS</div>
+        <div class="bk-score" id="bk-js">—</div>
+        <div class="bk-of">out of 10</div>
+      </div>
+    </div>
+
+    <div class="rev-label">Answer Review</div>
+    <div class="rev-list" id="rev-list"></div>
+
+    <div style="text-align:center">
+      <button class="btn-restart" onclick="restart()">↩ Try Again</button>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const Q = [
+  // ── HTML (10) ──
+  {
+    cat:'html',
+    q:'Which HTML element is used to define the document\'s title shown in the browser tab?',
+    opts:['&lt;head&gt;','&lt;title&gt;','&lt;meta&gt;','&lt;header&gt;'],
+    a:1,
+    exp:'// <title> sets the page title in browser tabs and search results.'
+  },
+  {
+    cat:'html',
+    q:'What does the <code>alt</code> attribute on an <code>&lt;img&gt;</code> tag provide?',
+    opts:['Image caption','Tooltip text','Alternative text for accessibility','Image title'],
+    a:2,
+    exp:'// alt text is read by screen readers and shown when the image fails to load.'
+  },
+  {
+    cat:'html',
+    q:'Which HTML5 element is the most semantically correct container for the main navigation links?',
+    opts:['&lt;div id="nav"&gt;','&lt;menu&gt;','&lt;nav&gt;','&lt;section&gt;'],
+    a:2,
+    exp:'// <nav> is the semantic element for site navigation blocks.'
+  },
+  {
+    cat:'html',
+    q:'What is the correct way to create a self-closing line break in HTML5?',
+    opts:['&lt;br/&gt;','&lt;break&gt;','&lt;lb&gt;','&lt;br&gt; (no slash needed)'],
+    a:3,
+    exp:'// In HTML5, void elements like <br> don\'t require a closing slash.'
+  },
+  {
+    cat:'html',
+    q:'Which input type should you use for a date picker in HTML5?',
+    opts:['type="text"','type="calendar"','type="date"','type="datetime"'],
+    a:2,
+    exp:'// type="date" renders a native date picker in supporting browsers.'
+  },
+  {
+    cat:'html',
+    q:'What attribute makes an HTML form field required before submission?',
+    opts:['mandatory','validate','required','must-fill'],
+    a:2,
+    exp:'// The required attribute prevents form submission if the field is empty.'
+  },
+  {
+    cat:'html',
+    q:'Which element should wrap the main unique content of a page (excluding headers/footers)?',
+    opts:['&lt;section&gt;','&lt;article&gt;','&lt;main&gt;','&lt;div&gt;'],
+    a:2,
+    exp:'// <main> identifies the primary content, aiding screen readers and SEO.'
+  },
+  {
+    cat:'html',
+    q:'What does the <code>defer</code> attribute on a <code>&lt;script&gt;</code> tag do?',
+    opts:['Blocks HTML parsing','Loads script asynchronously, then waits for DOM','Loads and executes immediately','Caches the script indefinitely'],
+    a:1,
+    exp:'// defer downloads the script in parallel but executes only after HTML parsing completes.'
+  },
+  {
+    cat:'html',
+    q:'Which HTML element represents a short inline quotation?',
+    opts:['&lt;blockquote&gt;','&lt;cite&gt;','&lt;q&gt;','&lt;quote&gt;'],
+    a:2,
+    exp:'// <q> is for short inline quotes; browsers typically add quotation marks automatically.'
+  },
+  {
+    cat:'html',
+    q:'What is the purpose of the <code>aria-label</code> attribute?',
+    opts:['Adds a visible label','Provides an accessible name for elements without visible text','Validates form fields','Links CSS styles'],
+    a:1,
+    exp:'// aria-label gives screen readers a name for elements that lack visible text labels.'
+  },
+
+  // ── CSS (10) ──
+  {
+    cat:'css',
+    q:'Which CSS property controls the space between an element\'s content and its border?',
+    opts:['margin','spacing','padding','gap'],
+    a:2,
+    exp:'// padding is inside the border; margin is outside.'
+  },
+  {
+    cat:'css',
+    q:'What value of <code>display</code> turns an element into a flex container?',
+    opts:['block','inline-flex only','flex','grid'],
+    a:2,
+    exp:'// display: flex creates a block-level flex container.'
+  },
+  {
+    cat:'css',
+    q:'Which CSS selector has the highest specificity?',
+    opts:['Element selector (div)','Class selector (.box)','ID selector (#main)','Inline style'],
+    a:3,
+    exp:'// Inline styles trump all selectors. Specificity order: inline > ID > class > element.'
+  },
+  {
+    cat:'css',
+    q:'What does <code>position: absolute</code> position an element relative to?',
+    opts:['The viewport','The document body always','Its nearest positioned ancestor','Its sibling element'],
+    a:2,
+    exp:'// Absolute elements are placed relative to the nearest ancestor with position != static.'
+  },
+  {
+    cat:'css',
+    q:'Which property is used to add a shadow to text in CSS?',
+    opts:['box-shadow','text-shadow','filter: shadow()','shadow'],
+    a:1,
+    exp:'// text-shadow takes: offset-x offset-y blur-radius color.'
+  },
+  {
+    cat:'css',
+    q:'What does the CSS <code>z-index</code> property control?',
+    opts:['Element zoom level','Horizontal stacking order','Vertical stacking order (depth)','Opacity'],
+    a:2,
+    exp:'// z-index controls which overlapping elements appear in front. Higher = closer to viewer.'
+  },
+  {
+    cat:'css',
+    q:'What is the default value of the CSS <code>position</code> property?',
+    opts:['relative','fixed','absolute','static'],
+    a:3,
+    exp:'// All elements are position: static by default — they follow normal document flow.'
+  },
+  {
+    cat:'css',
+    q:'Which CSS unit is relative to the root element\'s font size?',
+    opts:['em','px','rem','vh'],
+    a:2,
+    exp:'// rem = root em. 1rem equals the font-size set on the <html> element (usually 16px).'
+  },
+  {
+    cat:'css',
+    q:'Which property makes a flex item grow to fill available space?',
+    opts:['flex-grow','flex-basis','align-self','flex-fill'],
+    a:0,
+    exp:'// flex-grow: 1 allows the item to expand proportionally into remaining space.'
+  },
+  {
+    cat:'css',
+    q:'Which CSS pseudo-class targets an element only when it receives keyboard focus?',
+    opts:[':hover',':active',':focus',':checked'],
+    a:2,
+    exp:'// :focus is triggered when a user tabs to or clicks an interactive element.'
+  },
+
+  // ── JavaScript (10) ──
+  {
+    cat:'js',
+    q:'What will <code>typeof null</code> return in JavaScript?',
+    opts:['"null"','"undefined"','"object"','"boolean"'],
+    a:2,
+    exp:'// typeof null === "object" is a well-known historical bug in JavaScript.'
+  },
+  {
+    cat:'js',
+    q:'Which method converts a JSON string into a JavaScript object?',
+    opts:['JSON.stringify()','JSON.parse()','JSON.convert()','Object.fromJSON()'],
+    a:1,
+    exp:'// JSON.parse(str) parses a JSON string. JSON.stringify(obj) does the reverse.'
+  },
+  {
+    cat:'js',
+    q:'What does the <code>===</code> operator check in JavaScript?',
+    opts:['Value only','Type only','Value AND type (strict equality)','Reference equality'],
+    a:2,
+    exp:'// === checks both value and type without coercion. 0 == false is true; 0 === false is false.'
+  },
+  {
+    cat:'js',
+    q:'Which array method creates a NEW array with only elements that pass a test?',
+    opts:['map()','find()','filter()','reduce()'],
+    a:2,
+    exp:'// filter() returns a new array of elements where the callback returns true.'
+  },
+  {
+    cat:'js',
+    q:'What is a JavaScript closure?',
+    opts:[
+      'A way to close the browser tab',
+      'A function that remembers its outer scope even after the outer function returns',
+      'A method to terminate a loop',
+      'An error-handling mechanism'
+    ],
+    a:1,
+    exp:'// Closures let inner functions access outer function variables even after execution ends.'
+  },
+  {
+    cat:'js',
+    q:'What does <code>Array.prototype.map()</code> return?',
+    opts:['The original array mutated','A new array of the same length','A single accumulated value','A boolean'],
+    a:1,
+    exp:'// map() always returns a new array with the same number of elements as the original.'
+  },
+  {
+    cat:'js',
+    q:'Which keyword declares a block-scoped variable that can be reassigned?',
+    opts:['var','let','const','function'],
+    a:1,
+    exp:'// let is block-scoped and reassignable. const is block-scoped but not reassignable.'
+  },
+  {
+    cat:'js',
+    q:'What does <code>event.preventDefault()</code> do?',
+    opts:[
+      'Stops event bubbling',
+      'Removes the event listener',
+      'Prevents the browser\'s default action for that event',
+      'Cancels async operations'
+    ],
+    a:2,
+    exp:'// e.g., calling it on a form submit event prevents the page from reloading.'
+  },
+  {
+    cat:'js',
+    q:'Which statement best describes a JavaScript Promise?',
+    opts:[
+      'A synchronous value',
+      'An object representing the eventual result of an async operation',
+      'A loop that resolves when done',
+      'A type of callback function'
+    ],
+    a:1,
+    exp:'// Promises can be pending, fulfilled, or rejected. They enable cleaner async code than raw callbacks.'
+  },
+  {
+    cat:'js',
+    q:'What will <code>console.log(0.1 + 0.2 === 0.3)</code> output?',
+    opts:['true','false','NaN','undefined'],
+    a:1,
+    exp:'// Floating-point arithmetic: 0.1 + 0.2 = 0.30000000000000004, not exactly 0.3.'
+  }
+];
+
+const KEYS = ['A','B','C','D'];
+let cur = 0;
+let chosen  = new Array(Q.length).fill(null);
+let answered = new Array(Q.length).fill(false);
+
+function showSection(id) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+function showQuiz() { showSection('sec-quiz'); render(); }
+
+function render() {
+  const d = Q[cur];
+
+  // header
+  document.getElementById('q-num').textContent = cur + 1;
+  document.getElementById('prog').style.width = ((cur+1)/Q.length*100) + '%';
+
+  // badge
+  const badge = document.getElementById('cat-badge');
+  badge.textContent = d.cat.toUpperCase();
+  badge.className = 'cat-badge cat-' + d.cat;
+
+  // card accent
+  const card = document.getElementById('q-card');
+  card.className = 'card ' + d.cat + '-q';
+
+  // question — allow <code> and HTML entities
+  document.getElementById('q-text').innerHTML = d.q;
+
+  // options
+  const wrap = document.getElementById('opts-wrap');
+  wrap.innerHTML = '';
+  d.opts.forEach((opt, i) => {
+    const div = document.createElement('div');
+    div.className = 'opt';
+    div.innerHTML = `<span class="opt-key">${KEYS[i]}</span><span class="opt-txt">${opt}</span>`;
+
+    if (answered[cur]) {
+      div.classList.add('locked');
+      if (i === d.a)                         div.classList.add('right');
+      else if (i === chosen[cur] && i !== d.a) div.classList.add('wrong');
+    } else {
+      if (chosen[cur] === i) div.classList.add('chosen');
+      div.onclick = () => pick(i);
+    }
+    wrap.appendChild(div);
+  });
+
+  // explanation
+  const exp = document.getElementById('exp-box');
+  if (answered[cur]) { exp.textContent = d.exp; exp.classList.add('show'); }
+  else               { exp.textContent = '';    exp.classList.remove('show'); }
+
+  // warn
+  document.getElementById('warn-box').classList.remove('show');
+
+  // live score
+  const sc = document.getElementById('live-sc');
+  if (answered.some(Boolean)) {
+    sc.style.display = '';
+    const s = answered.reduce((a,done,i) => done && chosen[i]===Q[i].a ? a+1 : a, 0);
+    document.getElementById('ls-val').textContent = s;
+  }
+
+  // buttons
+  document.getElementById('btn-prev').disabled = cur === 0;
+  document.getElementById('btn-next').textContent = cur === Q.length-1 ? 'Finish ✓' : 'Next →';
+}
+
+function pick(i) {
+  chosen[cur] = i;
+  answered[cur] = true;
+  render();
+}
+
+function go(dir) {
+  if (dir === 1) {
+    if (!answered[cur]) { document.getElementById('warn-box').classList.add('show'); return; }
+    if (cur === Q.length-1) { showResults(); return; }
+    cur++;
+  } else {
+    if (cur === 0) return;
+    cur--;
+  }
+  render();
+}
+
+function showResults() {
+  showSection('sec-results');
+
+  const total = Q.reduce((a,q,i) => chosen[i]===q.a ? a+1 : a, 0);
+  const htmlSc = Q.filter(q=>q.cat==='html').reduce((a,q,i)=>{
+    const idx = Q.indexOf(q); return chosen[idx]===q.a ? a+1 : a; }, 0);
+  const cssSc  = Q.filter(q=>q.cat==='css' ).reduce((a,q,i)=>{
+    const idx = Q.indexOf(q); return chosen[idx]===q.a ? a+1 : a; }, 0);
+  const jsSc   = Q.filter(q=>q.cat==='js'  ).reduce((a,q,i)=>{
+    const idx = Q.indexOf(q); return chosen[idx]===q.a ? a+1 : a; }, 0);
+
+  document.getElementById('rn-big').textContent = total;
+  document.getElementById('bk-html').textContent = htmlSc;
+  document.getElementById('bk-css').textContent  = cssSc;
+  document.getElementById('bk-js').textContent   = jsSc;
+
+  const pct = total / Q.length;
+  setTimeout(() => {
+    const circ = 2*Math.PI*75;
+    document.getElementById('ring-arc').style.strokeDasharray = circ;
+    document.getElementById('ring-arc').style.strokeDashoffset = circ - pct*circ;
+  }, 100);
+
+  let title, sub;
+  if      (pct >= 0.9) { title='🏆 Expert Developer';   sub='Outstanding. You clearly live and breathe web dev.'; }
+  else if (pct >= 0.7) { title='💪 Strong Knowledge';    sub='Solid command of the fundamentals. Keep building!'; }
+  else if (pct >= 0.5) { title='📚 Good Foundation';     sub='You\'re on the right path — review the misses.'; }
+  else if (pct >= 0.3) { title='🌱 Keep Practising';     sub='Web dev takes time. Each bug is a lesson.'; }
+  else                  { title='🔍 Time to Study Up';    sub='Start with the explanations below and try again.'; }
+
+  document.getElementById('res-title').textContent = title;
+  document.getElementById('res-sub').textContent   = sub;
+
+  // review
+  const list = document.getElementById('rev-list');
+  list.innerHTML = '';
+  Q.forEach((q, i) => {
+    const ok = chosen[i] === q.a;
+    const div = document.createElement('div');
+    div.className = 'ri ' + (ok ? 'ok' : 'bad');
+    div.innerHTML = `
+      <div class="ri-ic">${ok ? '✅' : '❌'}</div>
+      <div class="ri-body">
+        <div class="ri-q">${q.q}</div>
+        <div class="ri-a">
+          ${ok
+            ? `<b class="ok">Correct:</b> ${q.opts[q.a]}`
+            : `Your answer: <b class="bad">${chosen[i]!==null ? q.opts[chosen[i]] : 'Skipped'}</b> · Correct: <b class="ok">${q.opts[q.a]}</b>`
+          }
+        </div>
+      </div>`;
+    list.appendChild(div);
+  });
+}
+
+function restart() {
+  cur = 0;
+  chosen   = new Array(Q.length).fill(null);
+  answered = new Array(Q.length).fill(false);
+  document.getElementById('live-sc').style.display = 'none';
+  document.getElementById('ring-arc').style.strokeDashoffset = '471';
+  showSection('sec-intro');
+}
+</script>
+</body>
+</html>
